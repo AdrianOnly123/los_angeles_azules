@@ -1,0 +1,17 @@
+{
+  "watch": [
+    "server.js",
+    "controllers",
+    "models",
+    "routes",
+    "services",
+    "middlewares"
+  ],
+  "ext": "js,json",
+  "ignore": [
+    "uploads/*",
+    "node_modules/*",
+    "package-lock.json"
+  ],
+  "exec": "node server.js"
+}
