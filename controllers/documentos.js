@@ -1,17 +1,23 @@
 // controllers/documentos.js
-const { Router } = require('express');
+const express = require("express");
+const router = express.Router();
+
+const documentosController = require("../controllers/documentoController");
 const { verifyToken } = require('./middlewares/auth');
+const upload = require('./middlewares/upload');
+// Crear
+router.post('/', upload.single('archivo'), documentosController.crearDocumento);
 
-const router = Router();
+// Obtener
+router.get("/", documentosController.obtenerDocumentos);
 
-// Ruta pública para comprobar que el router carga
-router.get('/ping', (req, res) => {
-  res.json({ ok: true });
-});
+// Obtener
+router.get('/:id', documentosController.obtenerDocumentoPorId);
 
-// Ruta protegida mínima (sin upload ni otros middlewares todavía)
-router.post('/', verifyToken, (req, res) => {
-  res.status(201).json({ ok: true, user: req.user });
-});
+// Actualizar
+router.put("/:id", documentosController.actualizarDocumento);
+
+// Eliminar
+router.delete('/:id', verifyToken, documentosController.eliminarDocumento);
 
 module.exports = router;
