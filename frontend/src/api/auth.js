@@ -1,23 +1,36 @@
-const BASE = import.meta.env.VITE_API_URL;
+const BASE = (
+  (import.meta.env && import.meta.env.VITE_API) || "http://localhost:3305/api"
+).replace(/\/+$/, "");
+
+async function parseResponse(res) {
+  const text = await res.text();
+  let data = {};
+  try { data = text ? JSON.parse(text) : {}; } catch { /* no era JSON */ }
+  if (!res.ok) {
+    throw new Error(data?.error || `HTTP ${res.status}`);
+  }
+  return data;
+}
+
 
 export async function login(email, password) {
-  const res = await fetch(`${BASE}/api/auth/login`, {
+  const res = await fetch(`${BASE}/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password })
+    body: JSON.stringify({ email, password }),
   });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || "Error en login");
-  return data; // { token, user }
+  const data = await parseResponse(res);
+  return { token: data.token, user: data.user };
 }
 
-export async function register(email, password) {
-  const res = await fetch(`${BASE}/api/auth/register`, {
+export async function register(nombre, email, password) {
+  const res = await fetch(`${BASE}/auth/register`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password })
+    body: JSON.stringify({ nombre, email, password }),
   });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || "Error en registro");
-  return data; // { mensaje } o similar
+  return await parseResponse(res);
 }
+
+// útil para debug si vuelve a fallar
+export function getApiBase() { return BASE; }

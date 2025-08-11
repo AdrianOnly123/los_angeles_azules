@@ -5,18 +5,19 @@ const router = express.Router();
 const documentosController = require("../controllers/documentoController");
 const { verifyToken } = require('./middlewares/auth');
 const upload = require('./middlewares/upload');
-// Crear
-router.post('/', verifyToken, upload.single('archivo'), documentosController.crearDocumento);
-// Obtener
-router.get("/", documentosController.obtenerDocumentos);
 
-// Obtener
-router.get('/:id', documentosController.obtenerDocumentoPorId);
 
-// Actualizar
-router.put("/:id", documentosController.actualizarDocumento);
+router.get("/", verifyToken, documentosController.obtenerDocumentos);
 
-// Eliminar
-router.delete('/:id', verifyToken, documentosController.eliminarDocumento);
+// Detalle: requiere estar logueado, pero NO checamos permisos aquí
+router.get("/:id", verifyToken, documentosController.obtenerDocumentoPorId);
 
+// Crear: logueado + multer
+router.post("/", verifyToken, upload.single("archivo"), documentosController.crearDocumento);
+
+// Actualizar: logueado
+router.put("/:id", verifyToken, documentosController.actualizarDocumento);
+
+// Eliminar: logueado
+router.delete("/:id", verifyToken, documentosController.eliminarDocumento);
 module.exports = router;

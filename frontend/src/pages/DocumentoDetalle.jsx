@@ -10,85 +10,180 @@ import {
 } from "../api/comentarios";
 
 export default function DocumentoDetalle() {
-  const { id } = useParams();                 // <-- hook solo al tope
+  const { id } = useParams();
   const [doc, setDoc] = useState(null);
   const [comentarios, setComentarios] = useState([]);
   const [texto, setTexto] = useState("");
+  const [editando, setEditando] = useState(null);
+  const [nuevoTexto, setNuevoTexto] = useState("");
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(true);
 
-  // Cargar doc + comentarios
-  useEffect(() => {
-    let alive = true;
-    async function load() {
-      setErr("");
-      setLoading(true);
-      try {
-        const [d, cs] = await Promise.all([
-          getDoc(id),
-          getComentariosPorDocumento(id),
-        ]);
-        if (!alive) return;
-        setDoc(d);
-        setComentarios(cs);
-      } catch (e) {
-        if (!alive) return;
-        setErr(e.message || "Error al cargar");
-      } finally {
-        if (alive) setLoading(false);
-      }
+  async function loadData() {
+    setErr("");
+    setLoading(true);
+
+    // 1) Cargar documento
+    try {
+      const dataDoc = await getDoc(id);
+      setDoc(dataDoc);
+    } catch (e) {
+      setErr(e.message);
+      setLoading(false);
+      return; // si no hay doc, sí salimos
     }
-    load();
-    return () => { alive = false; };
+
+    try {
+      const dataComentarios = await getComentariosPorDocumento(id);
+      setComentarios(Array.isArray(dataComentarios) ? dataComentarios : []);
+    } catch (e) {
+      console.warn("No se pudieron cargar comentarios:", e.message);
+      setComentarios([]); // deja la lista vacía y sigue
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadData();
   }, [id]);
 
-  async function handleCrear(e) {
-    e.preventDefault();
-    setErr("");
+  async function handleComentar() {
     if (!texto.trim()) return;
     try {
-      await crearComentario({ documento_id: Number(id), texto });
+      await crearComentario(id, texto);
       setTexto("");
-      const cs = await getComentariosPorDocumento(id);
-      setComentarios(cs);
+      await loadData();
     } catch (e) {
       setErr(e.message);
     }
   }
 
-  if (loading) return <div style={{ padding: 16 }}>Cargando...</div>;
+  async function handleEliminar(comentarioId) {
+    if (!confirm("¿Eliminar este comentario?")) return;
+    try {
+      await eliminarComentario(comentarioId);
+      await loadData();
+    } catch (e) {
+      setErr(e.message);
+    }
+  }
+
+  async function handleActualizar(comentarioId) {
+    if (!nuevoTexto.trim()) return;
+    try {
+      await actualizarComentario(comentarioId, nuevoTexto);
+      setEditando(null);
+      setNuevoTexto("");
+      await loadData();
+    } catch (e) {
+      setErr(e.message);
+    }
+  }
 
   return (
-    <div style={{ padding: 16 }}>
-      <Link to="/documentos">← Volver</Link>
-      <h2 style={{ marginTop: 8 }}>{doc?.nombre} ({doc?.tipo})</h2>
+    <div className="page" style={{ maxWidth: 900 }}>
+      <Link className="link-neon" to="/documentos">
+        ← Volver
+      </Link>
 
-      <p>Total de comentarios: <b>{comentarios.length}</b></p>
-      {err && <p style={{ color: "crimson" }}>{err}</p>}
+      {loading ? (
+        <h1 className="h1">Cargando…</h1>
+      ) : !doc ? (
+        <h1 className="h1">Documento no encontrado</h1>
+      ) : (
+        <>
+          <h1 className="h1">
+            {doc.nombre} <span className="muted">({doc.tipo})</span>
+          </h1>
+          <div className="muted" style={{ marginBottom: 14 }}>
+            Total de comentarios: {comentarios.length}
+          </div>
 
-      <h3>Comentarios</h3>
-      {comentarios.length === 0 && <p>No hay comentarios.</p>}
+          {err && <div className="error">{err}</div>}
 
-      <ul>
-        {comentarios.map(c => (
-          <li key={c.id}>
-            <b>{c.autor || c.usuario_id}:</b> {c.texto}
-          </li>
-        ))}
-      </ul>
+          <div className="card-neon" style={{ marginBottom: 20 }}>
+            <h2 className="h2">Comentarios</h2>
+            {comentarios.length === 0 ? (
+              <div className="muted">Aún no hay comentarios.</div>
+            ) : (
+              comentarios.map((c) => (
+                <div key={c.id} className="comment">
+                  <div className="author">{c.usuario}:</div>
+                  {editando === c.id ? (
+                    <>
+                      <textarea
+                        className="input-neon"
+                        rows={2}
+                        value={nuevoTexto}
+                        onChange={(e) => setNuevoTexto(e.target.value)}
+                      />
+                      <div style={{ marginTop: 6 }}>
+                        <button
+                          className="btn-neon"
+                          onClick={() => handleActualizar(c.id)}
+                        >
+                          Guardar
+                        </button>
+                        <button
+                          className="btn-neon btn-danger"
+                          onClick={() => {
+                            setEditando(null);
+                            setNuevoTexto("");
+                          }}
+                        >
+                          Cancelar
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div>{c.texto}</div>
+                      <div className="comment-actions">
+                        <button
+                          className="btn-neon btn-small"
+                          onClick={() => {
+                            setEditando(c.id);
+                            setNuevoTexto(c.texto);
+                          }}
+                        >
+                          Editar
+                        </button>
+                        <button
+                          className="btn-neon btn-danger btn-small"
+                          onClick={() => handleEliminar(c.id)}
+                        >
+                          Eliminar
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
 
-      <form onSubmit={handleCrear} style={{ marginTop: 12 }}>
-        <textarea
-          value={texto}
-          onChange={e => setTexto(e.target.value)}
-          rows={3}
-          style={{ width: 320 }}
-          placeholder="Escribe un comentario..."
-        />
-        <div>
-          <button type="submit">Comentar</button>
-        </div>
-      </form>
+          <div className="card-neon">
+            <h2 className="h2">Agregar comentario</h2>
+            <textarea
+              className="input-neon"
+              rows={3}
+              value={texto}
+              onChange={(e) => setTexto(e.target.value)}
+              placeholder="Escribe un comentario…"
+            />
+            <div style={{ marginTop: 10 }}>
+              <button
+                className="btn-neon"
+                onClick={handleComentar}
+                disabled={!texto.trim()}
+              >
+                Comentar
+              </button>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

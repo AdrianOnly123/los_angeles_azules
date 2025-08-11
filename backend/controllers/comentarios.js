@@ -1,19 +1,24 @@
 const router = require('express').Router();
 const comentarioController = require('./comentarioController');
 const { verifyToken } = require('./middlewares/auth');
+const comentarios = require("../controllers/comentarioController");
 const { checkPermisoComentar, checkAutorComentario } = require('./middlewares/permisos');
 const repo = require('../models/repository');
 
 
 // GET /api/comentarios/:documento_id
-router.get('/:documento_id', verifyToken, checkPermisoComentar, async (req, res) => {
+router.get("/:documento_id", verifyToken, async (req, res) => {
   try {
     const documento_id = Number(req.params.documento_id);
+    if (!Number.isFinite(documento_id)) {
+      return res.status(400).json({ error: "documento_id inválido" });
+    }
+
     const data = await repo.obtenerComentariosPorDocumento(documento_id);
-    res.json(data);
+    return res.json(data || []);
   } catch (e) {
-    console.error('GET comentarios error:', e);
-    res.status(500).json({ error: 'Error al obtener comentarios' });
+    console.error("GET comentarios error:", e);
+    return res.status(500).json({ error: "Error al obtener comentarios" });
   }
 });
 
